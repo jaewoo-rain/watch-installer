@@ -7,6 +7,7 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.InputStream
 
 /** 설치할 APK 한 개. 기본 경로의 파일이거나, 파일 선택기로 고른 문서(uri). */
@@ -22,21 +23,28 @@ data class ApkFile(
     fun open(context: Context): InputStream =
         file?.inputStream()
             ?: context.contentResolver.openInputStream(uri!!)
-            ?: error("Cannot open the file")
+            ?: throw FileNotFoundException("Cannot open the file")
 }
 
 object ApkSource {
     const val DEFAULT_NAME = "snown-watch.apk"
 
-    fun defaultFile(): File =
-        File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), DEFAULT_NAME)
-
     /** `Download/snown-watch.apk` 를 이 앱이 직접 읽을 수 있으면(모든 파일 접근 허용 시) 그것을 돌려준다. */
-    fun readDefault(): ApkFile? {
-        val f = defaultFile()
-        if (!canReadAllFiles() || !f.isFile || !f.canRead()) return null
+    fun readDefault(): ApkFile? = downloadFile(DEFAULT_NAME)
+
+    /**
+     * `Download/<name>` 을 경로로 직접 읽는다(모든 파일 접근 허용 시). 미디어 저장소를 거치지 않으니
+     * 파일 소유자(예: `adb push` 로 넣은 파일)나 덮어쓰기로 무효가 된 URI 와 상관없이 읽힌다.
+     */
+    fun downloadFile(name: String): ApkFile? {
+        if (name.isBlank() || name.contains('/') || !canReadAllFiles()) return null
+        val f = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), name)
+        if (!f.isFile || !f.canRead()) return null
         return ApkFile(f.name, f.length(), f.lastModified(), file = f)
     }
+
+    /** 실제로 열리는지 미리 확인한다(이름·크기는 보이는데 내용은 못 읽는 경우가 있다). */
+    fun canOpen(context: Context, apk: ApkFile): Boolean = runCatching { apk.open(context).close() }.isSuccess
 
     fun canReadAllFiles(): Boolean = Environment.isExternalStorageManager()
 

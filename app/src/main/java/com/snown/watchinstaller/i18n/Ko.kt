@@ -65,6 +65,8 @@ object Ko : Texts {
     override val pickOther = "다른 파일 고르기"
     override val allowGuide = "'모든 파일 접근'을 허용하면 다음부터 다운로드 폴더의 기본 파일을 알아서 집어 와요."
     override val allowButton = "다운로드 폴더 자동 읽기 허용"
+    override val filePickAgain = "전에 고른 파일을 열 수 없어요(바뀌었거나 지워졌어요). 파일을 다시 골라 주세요."
+    override val fileUnreadable = "이 파일을 읽을 수 없어요. '다운로드 폴더 자동 읽기 허용'을 켜거나, PC 탐색기로 파일을 다시 복사해 주세요."
 
     override val installTitle = "워치에 설치"
     override val installDesc = "파일을 워치로 보내 설치해요"
@@ -73,6 +75,7 @@ object Ko : Texts {
     override val ready = "준비됐어요. 설치를 누르세요. 워치에 같은 앱이 있으면 새 파일로 덮어써요."
     override val sending = "워치로 보내는 중…"
     override val installing = "워치에서 설치하는 중… (조금 걸려요)"
+    override val installNoAnswer = "워치에서 결과를 받지 못했어요. 워치 앱 목록에서 설치됐는지 확인해 주세요."
     override val successTitle = "설치 완료!"
     override val successNext = "워치에서 앱을 열어 보세요."
     override val failTitle = "설치하지 못했어요"

@@ -72,6 +72,8 @@ interface Texts {
     val pickOther: String
     val allowGuide: String
     val allowButton: String
+    val filePickAgain: String
+    val fileUnreadable: String
 
     // 4. 설치
     val installTitle: String
@@ -81,6 +83,7 @@ interface Texts {
     val ready: String
     val sending: String
     val installing: String
+    val installNoAnswer: String
     val successTitle: String
     val successNext: String
     val failTitle: String

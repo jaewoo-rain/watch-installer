@@ -16,6 +16,8 @@ import com.snown.watchinstaller.apk.ApkSource
 import com.snown.watchinstaller.i18n.Lang
 import com.snown.watchinstaller.i18n.Msg
 import com.snown.watchinstaller.logic.FailureMessages
+import com.snown.watchinstaller.logic.FileAccess
+import com.snown.watchinstaller.logic.InstallResult
 import com.snown.watchinstaller.logic.Stage
 import com.snown.watchinstaller.logic.Validation
 import kotlinx.coroutines.Dispatchers
@@ -75,6 +77,9 @@ class InstallerViewModel(app: Application) : AndroidViewModel(app) {
     var apk by mutableStateOf<ApkFile?>(null)
         private set
     var canReadDownloads by mutableStateOf(false)
+        private set
+    /** 전에 고른 파일·방금 고른 파일을 못 읽을 때 안내. */
+    var fileMessage by mutableStateOf<Msg?>(null)
         private set
 
     // 4. 설치
@@ -206,32 +211,55 @@ class InstallerViewModel(app: Application) : AndroidViewModel(app) {
         connectMessage = message
     }
 
-    /** 앱으로 돌아올 때마다: 기본 파일을 다시 확인(새로 받았을 수 있음). */
+    /** 앱으로 돌아올 때마다(= 3단계를 다시 보여 줄 때): 기본 파일을 다시 확인(새로 받았을 수 있음)하고, 고른 파일이 아직 읽히는지 미리 열어 본다. */
     fun refreshApk() {
         canReadDownloads = ApkSource.canReadAllFiles()
         val default = ApkSource.readDefault()
         if (default != null) {
             apk = default
+            fileMessage = null
             return
         }
-        val current = apk
-        if (current?.file != null) apk = null // 기본 파일이 지워졌다
-        if (apk == null) {
-            prefs.getString(KEY_PICKED, null)?.let { saved ->
-                apk = ApkSource.fromUri(getApplication(), Uri.parse(saved))
-            }
-        } else if (current?.uri != null) {
-            apk = ApkSource.fromUri(getApplication(), current.uri)
+        val saved = prefs.getString(KEY_PICKED, null)
+        if (saved == null) {
+            apk = null // 기본 파일이 지워졌고 고른 파일도 없다
+            return
         }
+        val resolved = resolvePicked(Uri.parse(saved), prefs.getString(KEY_PICKED_NAME, null))
+        if (resolved != null) apk = resolved else forgetPicked { it.filePickAgain }
     }
 
     fun onPicked(uri: Uri) {
         val app = getApplication<Application>()
         ApkSource.keepPermission(app, uri)
-        val picked = ApkSource.fromUri(app, uri) ?: return
-        prefs.edit().putString(KEY_PICKED, uri.toString()).apply()
+        val name = ApkSource.fromUri(app, uri)?.name
+        val picked = resolvePicked(uri, name)
+        if (picked == null) {
+            forgetPicked { it.fileUnreadable }
+            return
+        }
+        prefs.edit().putString(KEY_PICKED, uri.toString()).putString(KEY_PICKED_NAME, name).apply()
         apk = picked
+        fileMessage = null
         if (install !is InstallState.Sending && install !is InstallState.Installing) install = InstallState.Idle
+    }
+
+    /**
+     * 고른 파일을 실제로 읽을 수 있는 형태로 바꾼다. '모든 파일 접근'이 있으면 같은 이름의 `Download/` 파일을 경로로 직접 읽는 것이 우선
+     * (덮어써서 무효가 된 URI·`adb push` 로 넣은 파일도 읽힌다). 아니면 URI 를 열어 확인하고, 못 열면 null.
+     */
+    private fun resolvePicked(uri: Uri, savedName: String?): ApkFile? {
+        val app = getApplication<Application>()
+        val meta = ApkSource.fromUri(app, uri)
+        val name = meta?.name?.ifEmpty { null } ?: savedName
+        name?.let(ApkSource::downloadFile)?.let { return it }
+        return meta?.takeIf { ApkSource.canOpen(app, it) }
+    }
+
+    private fun forgetPicked(message: Msg) {
+        prefs.edit().remove(KEY_PICKED).remove(KEY_PICKED_NAME).apply()
+        apk = null
+        fileMessage = message
     }
 
     val canInstall: Boolean
@@ -246,7 +274,13 @@ class InstallerViewModel(app: Application) : AndroidViewModel(app) {
             val app = getApplication<Application>()
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    file.open(app).use { input ->
+                    // 파일을 못 읽는 건 설치 오류가 아니라 3단계 문제 — 아래에서 null 로 받아 '다시 골라 주세요'로 되돌린다.
+                    val opened = try {
+                        file.open(app)
+                    } catch (e: Exception) {
+                        if (FileAccess.isUnreadable(e)) return@runCatching null else throw e
+                    }
+                    opened.use { input ->
                         ApkInstaller.install(adb, input, file.size) { sent ->
                             val state = if (sent >= file.size) InstallState.Installing else InstallState.Sending(sent, file.size)
                             viewModelScope.launch { install = state }
@@ -257,8 +291,13 @@ class InstallerViewModel(app: Application) : AndroidViewModel(app) {
             install = result.fold(
                 onSuccess = {
                     when (it) {
-                        ApkInstaller.Result.Success -> InstallState.Done
-                        is ApkInstaller.Result.Failure -> InstallState.Failed(FailureMessages.forInstallOutput(it.output))
+                        null -> {
+                            if (file.uri != null) forgetPicked { t -> t.filePickAgain } else forgetPicked { t -> t.fileUnreadable }
+                            InstallState.Idle
+                        }
+                        InstallResult.Success -> InstallState.Done
+                        is InstallResult.Failure -> InstallState.Failed(FailureMessages.forInstallOutput(it.output))
+                        InstallResult.NoAnswer -> InstallState.Failed { t -> t.installNoAnswer }
                     }
                 },
                 onFailure = {
@@ -278,6 +317,7 @@ class InstallerViewModel(app: Application) : AndroidViewModel(app) {
         const val KEY_PORT = "port"
         const val KEY_PAIRED = "paired"
         const val KEY_PICKED = "picked_uri"
+        const val KEY_PICKED_NAME = "picked_name"
         const val KEY_LANG = "lang"
     }
 }

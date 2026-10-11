@@ -54,6 +54,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.snown.watchinstaller.InstallState
+import com.snown.watchinstaller.apk.ApkSource
 import com.snown.watchinstaller.InstallerViewModel
 import com.snown.watchinstaller.StepStatus
 import com.snown.watchinstaller.i18n.Lang
@@ -373,8 +374,9 @@ private fun FileStep(vm: InstallerViewModel, dot: Dot, onPickFile: () -> Unit, o
                 val modified = apk.modified?.let { " · " + t.modifiedAt(Format.time(it, t)) }.orEmpty()
                 Guide("${Format.size(apk.size)}$modified")
             }
-            if (apk.file != null) Guide(t.autoPicked)
+            if (apk.file != null && apk.name == ApkSource.DEFAULT_NAME) Guide(t.autoPicked)
         } else {
+            Message(vm.fileMessage)
             Guide(t.noFileGuide)
         }
         OutlinedButton(onClick = onPickFile, modifier = Modifier.fillMaxWidth()) {

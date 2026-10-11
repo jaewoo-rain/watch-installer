@@ -65,6 +65,8 @@ object En : Texts {
     override val pickOther = "Choose another file"
     override val allowGuide = "Allow 'All files access' and the default file in the Download folder will be picked up automatically next time."
     override val allowButton = "Allow reading the Download folder"
+    override val filePickAgain = "Can't open the file you chose earlier (it was changed or removed). Please choose the file again."
+    override val fileUnreadable = "Can't read this file. Turn on 'Allow reading the Download folder', or copy the file again with the PC file explorer."
 
     override val installTitle = "Install on watch"
     override val installDesc = "Send the file to the watch and install it"
@@ -73,6 +75,7 @@ object En : Texts {
     override val ready = "Ready. Tap Install. If the same app is already on the watch, it will be replaced with this file."
     override val sending = "Sending to the watch…"
     override val installing = "Installing on the watch… (this takes a moment)"
+    override val installNoAnswer = "Didn't get a result from the watch. Check the watch's app list to see if it was installed."
     override val successTitle = "Installed!"
     override val successNext = "Open the app on your watch."
     override val failTitle = "Couldn't install"

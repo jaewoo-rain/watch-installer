@@ -54,9 +54,13 @@
 ## 설치 구현
 
 - 라이브러리에 설치 API 가 따로 없어서, `adb install` 의 "streamed install" 과 같은 방식으로 직접 구현했다: `exec:cmd package install -r -S <크기>` 스트림을 열고 APK 바이트를 흘려보낸 뒤 `Success`/`Failure [...]` 를 읽는다(`adb/ApkInstaller.kt`). `-r` 이라 같은 앱이 있으면 덮어쓴다.
+  - 결과는 EOF 까지 기다리지 않는다. libadb 3.1.1 은 읽을 데이터가 남은 채로 원격이 스트림을 닫으면 닫힘을 '보류'로 두는데, 그 데이터를 다 읽은 뒤에도 닫힘으로 바뀌지 않아 블로킹 read 가 영영 안 끝날 수 있다. 그래서 `available()` 로 짧게 나눠 읽다가 `Success`/`Failure` 가 든 줄이 보이면 바로 끝내고(`logic/InstallOutput.kt`), 120초 안에 결과 줄이 없으면 '워치 앱 목록에서 확인' 안내를 띄운다.
+  - libadb 에는 출력 쪽만 닫는(half-close) API 가 없다(`AdbOutputStream.close()` 는 flush 만 한다). `-S <크기>` 로 크기를 알려 주므로 워치는 다 받으면 알아서 설치를 시작한다.
 - 키 쌍(RSA 2048 + 자체 서명 인증서)은 앱 내부 저장소(`filesDir/adb_key.pk8`, `adb_cert.der`)에 처음 실행 때 만들어 계속 쓴다. 앱을 지우면 워치와 다시 페어링해야 한다.
 - 같은 Wi-Fi 에서 워치가 mDNS 로 광고하면(`_adb-tls-pairing._tcp`, `_adb-tls-connect._tcp`) 1·2단계의 IP·포트를 자동으로 채운다(`adb/WatchFinder.kt`). 공유기가 멀티캐스트를 막으면 직접 입력.
 - 설치할 파일: 다운로드 폴더의 기본 파일(`ApkSource.DEFAULT_NAME`)을 '모든 파일 접근' 권한이 있으면 자동으로 집고, 없으면 파일 선택기로 고른다. 고른 파일은 persistable URI 권한으로 기억한다.
+  - 3단계를 다시 보여 줄 때(앱으로 돌아올 때) 기억한 파일을 미리 열어 본다. 못 열면(`SecurityException`·`FileNotFoundException`·`IllegalArgumentException`) 기억을 지우고 '파일을 다시 골라 주세요'로 되돌린다 — 설치 단계의 오류로 보이지 않게.
+  - '모든 파일 접근'이 있으면 URI 보다 같은 이름의 `Download/` 파일을 경로로 직접 읽는 것이 우선이다(미디어 저장소의 소유자 검사를 거치지 않는다).
 
 ## 코드 구성
 
@@ -65,11 +69,11 @@ app/src/main/java/.../watchinstaller/
   MainActivity.kt          파일 선택기·설정 화면 이동, mDNS 시작/정지
   InstallerViewModel.kt    4단계 상태와 동작, 화면 언어 저장
   adb/AdbManager.kt        libadb 연결 관리자 + 키 생성·보관
-  adb/ApkInstaller.kt      스트리밍 설치(cmd package install -S)
+  adb/ApkInstaller.kt      스트리밍 설치(cmd package install -S), 결과 줄 대기
   adb/WatchFinder.kt       mDNS 로 워치 IP·포트 찾기(폰 자신은 제외)
   apk/ApkSource.kt         다운로드 폴더의 기본 파일 또는 고른 파일
   i18n/                    화면 문구 한/영(Texts, Ko, En, Lang)
-  logic/                   입력 검증·실패 메시지·표시 형식 (JVM 단위 테스트 대상)
+  logic/                   입력 검증·실패 메시지·설치 결과 읽기·표시 형식 (JVM 단위 테스트 대상)
   ui/Theme.kt              고정 팔레트(라이트/다크)
   ui/InstallerScreen.kt    한 장짜리 화면 + 미리보기
 ```
@@ -80,6 +84,7 @@ app/src/main/java/.../watchinstaller/
 - 워치 무선 디버깅 포트는 켤 때마다 바뀐다. 자동 찾기가 안 되면 매번 새 포트를 넣어야 한다.
 - 워치에 **다른 서명**의 같은 앱이 깔려 있으면 덮어쓸 수 없다 → 워치에서 지우고 다시 설치(데이터도 지워진다).
 - 기본 파일을 바로 읽으려면 '모든 파일 접근' 권한이 필요하다. 안 주면 파일 고르기로 쓴다. 고른 파일은 기억하지만, 같은 이름으로 다시 받으면 다운로드 앱이 `이름 (1).apk` 처럼 새 파일을 만들 수 있으니 수정시각을 확인한다.
+- PC 에서 `adb push` 로 넣은 파일은 미디어 저장소 소유자가 `com.android.shell` 이 되어, 파일 고르기로 골라도 열리지 않는다(`... has no access to content://media/...`). '모든 파일 접근'을 켜거나 PC 탐색기(MTP)로 복사하면 된다.
 - 분할 APK(App Bundle 의 split)는 지원하지 않는다 — 워치용 단일 APK 만.
 - 디버그 APK 가 크다(약 40MB, 여러 CPU 용 Conscrypt 네이티브 라이브러리 포함).
 
