@@ -44,7 +44,51 @@ Connect the phone and the watch to the **same Wi-Fi**. If there's no router, or 
 
 ## Usage
 
-Coming soon with screenshots.
+The app shows four step cards from top to bottom. A finished step collapses to one line with a ✓; tap it to open it again.
+
+### 1. Pair (first time only)
+
+<img src="docs/images/en-1-pair.png" width="300" align="right">
+
+1. On the watch, go to **Settings → Developer options → Wireless debugging → Pair new device**.
+2. The watch shows an `IP address:port` and a **6-digit pairing code**. Keep that screen on (the code changes if it turns off).
+3. In card 1, enter the **IP address**, the **port** (the number after the colon) and the **pairing code**, then tap **Pair**.
+   - You can paste `192.168.0.12:37123` into the IP field and it will be split for you.
+4. You only pair once. If you reset the watch or the connection keeps getting refused, use **Pair again**.
+
+<br clear="right">
+
+### 2. Connect to watch
+
+<img src="docs/images/en-2-connect.png" width="300" align="right">
+
+1. Close the pairing dialog and look at `IP address & port` on the **main Wireless debugging screen** of the watch.
+   - **This port is different from the pairing port**, and it changes every time Wireless debugging is turned on.
+2. Enter the IP and port in card 2 and tap **Connect**. If the watch is found on the same Wi-Fi, the fields are filled in for you.
+3. If the watch asks "Allow debugging?", tap **Allow** (check "Always allow" to skip it next time).
+
+<br clear="right">
+
+### 3. Choose the file to install
+
+<img src="docs/images/en-3-file.png" width="300" align="right">
+
+1. Tap **Choose another file** and pick the APK on your phone. Check the name, size and modified time.
+2. With **Allow reading the Download folder** ('All files access') on, the default file in the Download folder is picked up automatically next time.
+3. When moving an APK from a PC to the phone, **copy it with the PC's file explorer**. Files pushed with `adb push` may not be readable by other apps (the app will ask you to choose the file again).
+
+<br clear="right">
+
+### 4. Install on watch
+
+<img src="docs/images/en-4-installed.png" width="300" align="right">
+
+1. Tap **Install**: sending (%) → installing → result. If the same app is already on the watch, it is replaced.
+2. When **Installed!** appears, open the app on your watch.
+3. If it fails, the reason and what to do are shown in one line (same Wi-Fi? did you tap Allow on the watch? is the same app with a different signature installed? …).
+4. When you're done, **turn off Wireless debugging** on the watch (saves battery).
+
+<br clear="right">
 
 ---
 
