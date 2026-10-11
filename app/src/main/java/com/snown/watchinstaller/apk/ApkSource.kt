@@ -11,6 +11,7 @@ import java.io.InputStream
 
 /** 설치할 APK 한 개. 기본 경로의 파일이거나, 파일 선택기로 고른 문서(uri). */
 data class ApkFile(
+    /** 파일 이름. 선택기가 알려 주지 않으면 빈 문자열. */
     val name: String,
     val size: Long,
     /** 수정 시각(ms). 모르면 null. */
@@ -21,7 +22,7 @@ data class ApkFile(
     fun open(context: Context): InputStream =
         file?.inputStream()
             ?: context.contentResolver.openInputStream(uri!!)
-            ?: error("파일을 열 수 없어요")
+            ?: error("Cannot open the file")
 }
 
 object ApkSource {
@@ -43,7 +44,7 @@ object ApkSource {
     fun fromUri(context: Context, uri: Uri): ApkFile? = runCatching {
         context.contentResolver.query(uri, null, null, null, null)?.use { c ->
             if (!c.moveToFirst()) return@use null
-            val name = c.getColumnIndex(OpenableColumns.DISPLAY_NAME).takeIf { it >= 0 }?.let(c::getString) ?: "선택한 파일"
+            val name = c.getColumnIndex(OpenableColumns.DISPLAY_NAME).takeIf { it >= 0 }?.let(c::getString).orEmpty()
             val size = c.getColumnIndex(OpenableColumns.SIZE).takeIf { it >= 0 && !c.isNull(it) }?.let(c::getLong) ?: return@use null
             val modified = c.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
                 .takeIf { it >= 0 && !c.isNull(it) }?.let(c::getLong)

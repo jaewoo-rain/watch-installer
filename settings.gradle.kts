@@ -1,5 +1,4 @@
-// 워치 설치 도우미 — 스논 Flutter 앱과 별개인 독립 Gradle 프로젝트.
-// frontend/android/settings.gradle.kts 에 include 하지 않는다.
+// 워치 설치 도우미 — 단독 Gradle 프로젝트.
 pluginManagement {
     repositories {
         google()

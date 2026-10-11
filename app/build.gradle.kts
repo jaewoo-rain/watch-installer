@@ -44,7 +44,7 @@ android {
 }
 
 dependencies {
-    // ADB 프로토콜(무선 페어링 SPAKE2 + TLS 연결) — README 의 "라이브러리" 참고
+    // ADB 프로토콜(무선 페어링 SPAKE2 + TLS 연결) — docs/DEVELOPMENT.md 의 "라이브러리 선택" 참고
     implementation("com.github.MuntashirAkon:libadb-android:3.1.1")
     // 워치 adbd 와 TLS 1.3 으로 붙기 위한 Conscrypt(라이브러리 README 권장)
     implementation("org.conscrypt:conscrypt-android:2.5.3")
@@ -55,6 +55,8 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.11.0")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
 
     testImplementation("junit:junit:4.13.2")

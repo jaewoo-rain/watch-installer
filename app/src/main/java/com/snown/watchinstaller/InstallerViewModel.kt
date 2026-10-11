@@ -13,12 +13,15 @@ import com.snown.watchinstaller.adb.ApkInstaller
 import com.snown.watchinstaller.adb.WatchFinder
 import com.snown.watchinstaller.apk.ApkFile
 import com.snown.watchinstaller.apk.ApkSource
+import com.snown.watchinstaller.i18n.Lang
+import com.snown.watchinstaller.i18n.Msg
 import com.snown.watchinstaller.logic.FailureMessages
 import com.snown.watchinstaller.logic.Stage
 import com.snown.watchinstaller.logic.Validation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 /** 4단계 각각의 상태. */
 enum class StepStatus { WAITING, WORKING, DONE }
@@ -28,7 +31,7 @@ sealed interface InstallState {
     data class Sending(val sent: Long, val total: Long) : InstallState
     data object Installing : InstallState
     data object Done : InstallState
-    data class Failed(val message: String) : InstallState
+    data class Failed(val message: Msg) : InstallState
 }
 
 class InstallerViewModel(app: Application) : AndroidViewModel(app) {
@@ -36,13 +39,22 @@ class InstallerViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("installer", Context.MODE_PRIVATE)
     private val adb by lazy { AdbManager.get(app) }
 
+    /** 화면 언어. 처음엔 기기 언어를 따르고, 고르면 기억한다. */
+    var lang by mutableStateOf(Lang.fromTag(prefs.getString(KEY_LANG, null)) ?: Lang.fromLocale(Locale.getDefault()))
+        private set
+
+    fun chooseLang(l: Lang) {
+        lang = l
+        prefs.edit().putString(KEY_LANG, l.name).apply()
+    }
+
     // 1. 페어링
     var pairIp by mutableStateOf(prefs.getString(KEY_IP, "").orEmpty())
     var pairPort by mutableStateOf("")
     var pairCode by mutableStateOf("")
     var pairStatus by mutableStateOf(if (prefs.getBoolean(KEY_PAIRED, false)) StepStatus.DONE else StepStatus.WAITING)
         private set
-    var pairMessage by mutableStateOf<String?>(null)
+    var pairMessage by mutableStateOf<Msg?>(null)
         private set
     var pairAutoFilled by mutableStateOf(false)
         private set
@@ -52,7 +64,7 @@ class InstallerViewModel(app: Application) : AndroidViewModel(app) {
     var connectPort by mutableStateOf(prefs.getString(KEY_PORT, "").orEmpty())
     var connectStatus by mutableStateOf(StepStatus.WAITING)
         private set
-    var connectMessage by mutableStateOf<String?>(null)
+    var connectMessage by mutableStateOf<Msg?>(null)
         private set
     var connectAutoFilled by mutableStateOf(false)
         private set
@@ -108,10 +120,10 @@ class InstallerViewModel(app: Application) : AndroidViewModel(app) {
         if (split != null) { connectIp = split.first; connectPort = split.second } else connectIp = v
     }
 
-    val pairInputError: String?
+    val pairInputError: Msg?
         get() = Validation.ipError(pairIp) ?: Validation.portError(pairPort) ?: Validation.codeError(pairCode)
 
-    val connectInputError: String?
+    val connectInputError: Msg?
         get() = Validation.ipError(connectIp) ?: Validation.portError(connectPort)
 
     fun pair() {
@@ -120,7 +132,7 @@ class InstallerViewModel(app: Application) : AndroidViewModel(app) {
         val port = pairPort.trim().toInt()
         val code = pairCode.trim()
         pairStatus = StepStatus.WORKING
-        pairMessage = "페어링하는 중…"
+        pairMessage = { it.pairing }
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { runCatching { adb.pair(ip, port, code) } }
             result.fold(
@@ -128,12 +140,12 @@ class InstallerViewModel(app: Application) : AndroidViewModel(app) {
                     if (ok) {
                         prefs.edit().putBoolean(KEY_PAIRED, true).putString(KEY_IP, ip).apply()
                         pairStatus = StepStatus.DONE
-                        pairMessage = "페어링 완료! 이제 2번 연결로 가세요."
+                        pairMessage = { it.pairDone }
                         pairCode = ""
                         if (connectIp.isBlank()) connectIp = ip
                     } else {
                         pairStatus = StepStatus.WAITING
-                        pairMessage = "페어링에 실패했어요. 6자리 숫자가 맞는지 확인해 주세요."
+                        pairMessage = { it.pairRejected }
                     }
                 },
                 onFailure = {
@@ -155,7 +167,7 @@ class InstallerViewModel(app: Application) : AndroidViewModel(app) {
         val ip = connectIp.trim()
         val port = connectPort.trim().toInt()
         connectStatus = StepStatus.WORKING
-        connectMessage = "연결하는 중… 워치에 확인 창이 뜨면 '허용'을 눌러 주세요."
+        connectMessage = { it.connecting }
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
@@ -172,7 +184,7 @@ class InstallerViewModel(app: Application) : AndroidViewModel(app) {
                         connectMessage = null
                     } else {
                         connectStatus = StepStatus.WAITING
-                        connectMessage = "워치가 연결을 허락하지 않았어요. 워치 화면에서 '허용'을 누르고 다시 해 주세요."
+                        connectMessage = { it.connectRejected }
                     }
                 },
                 onFailure = {
@@ -188,7 +200,7 @@ class InstallerViewModel(app: Application) : AndroidViewModel(app) {
         markDisconnected(null)
     }
 
-    private fun markDisconnected(message: String?) {
+    private fun markDisconnected(message: Msg?) {
         connectStatus = StepStatus.WAITING
         connectedTo = null
         connectMessage = message
@@ -266,5 +278,6 @@ class InstallerViewModel(app: Application) : AndroidViewModel(app) {
         const val KEY_PORT = "port"
         const val KEY_PAIRED = "paired"
         const val KEY_PICKED = "picked_uri"
+        const val KEY_LANG = "lang"
     }
 }

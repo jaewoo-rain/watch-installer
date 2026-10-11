@@ -1,16 +1,26 @@
 package com.snown.watchinstaller.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import android.content.res.Configuration
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -25,113 +35,263 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.snown.watchinstaller.InstallState
 import com.snown.watchinstaller.InstallerViewModel
 import com.snown.watchinstaller.StepStatus
+import com.snown.watchinstaller.i18n.Lang
+import com.snown.watchinstaller.i18n.Msg
+import com.snown.watchinstaller.i18n.Texts
 import com.snown.watchinstaller.logic.Format
 
-private val Good = Color(0xFF2E7D32)
+/** 지금 화면 언어의 문구. */
+val LocalTexts = compositionLocalOf<Texts> { Lang.KO.texts }
 
-@Composable
-fun InstallerTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme(),
-        content = content,
-    )
-}
+/** 단계 번호 원의 모양. */
+enum class Dot { DONE, ACTIVE, WAITING }
+
+// 여백 리듬: 바깥·카드 안 16dp, 요소 사이 12dp.
+private val Gap = 12.dp
+private val Pad = 16.dp
 
 @Composable
 fun InstallerScreen(vm: InstallerViewModel, onPickFile: () -> Unit, onAllowDownloads: () -> Unit) {
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(
-            Modifier
-                .safeDrawingPadding()
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text("워치 설치 도우미", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(
-                "위에서부터 순서대로 하면 폰에 있는 스논 워치 앱을 워치에 깔 수 있어요.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            PairStep(vm)
-            ConnectStep(vm)
-            FileStep(vm, onPickFile, onAllowDownloads)
-            InstallStep(vm)
-            Text(
-                "💡 설치가 끝나면 워치의 무선 디버깅을 꺼 두세요(배터리).",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
-            )
+    // 아직 끝나지 않은 첫 단계를 강조한다.
+    val done = listOf(
+        vm.pairStatus == StepStatus.DONE,
+        vm.connectStatus == StepStatus.DONE,
+        vm.apk != null,
+        vm.install == InstallState.Done,
+    )
+    val current = done.indexOfFirst { !it } + 1
+    fun dot(step: Int) = when {
+        done[step - 1] -> Dot.DONE
+        step == current -> Dot.ACTIVE
+        else -> Dot.WAITING
+    }
+    ScreenFrame(vm.lang, vm::chooseLang) {
+        PairStep(vm, dot(1))
+        ConnectStep(vm, dot(2))
+        FileStep(vm, dot(3), onPickFile, onAllowDownloads)
+        InstallStep(vm, dot(4))
+    }
+}
+
+/** 머리(제목 + 언어 전환) · 안내 · 단계 카드 · 끝맺음 안내. */
+@Composable
+private fun ScreenFrame(lang: Lang, onLang: (Lang) -> Unit, steps: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalTexts provides lang.texts) {
+        val t = LocalTexts.current
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(
+                Modifier
+                    .safeDrawingPadding()
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(Pad),
+                verticalArrangement = Arrangement.spacedBy(Gap),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        t.appName,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(Gap))
+                    LangSwitch(lang, onLang)
+                }
+                Text(t.intro, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(12.dp)) {
+                    Text(
+                        t.sameWifi,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = Pad, vertical = Gap),
+                    )
+                }
+                steps()
+                Text(t.tipTurnOff, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
 
+/** 우측 상단 `한글 | English` 2칸 세그먼트. */
 @Composable
-private fun StepCard(number: Int, title: String, status: StepStatus, content: @Composable () -> Unit) {
+private fun LangSwitch(lang: Lang, onLang: (Lang) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Surface(shape = CircleShape, border = BorderStroke(1.dp, colors.outline), color = colors.surface) {
+        Row(Modifier.selectableGroup()) {
+            Lang.entries.forEach { l ->
+                val selected = l == lang
+                Box(
+                    Modifier
+                        .height(36.dp)
+                        .background(if (selected) colors.primary else Color.Transparent, CircleShape)
+                        .selectable(selected = selected, role = Role.RadioButton, onClick = { onLang(l) })
+                        .padding(horizontal = Gap),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        l.label,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (selected) colors.onPrimary else colors.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 단계 카드 한 장: 왼쪽 번호 원, 제목 한 줄 + 설명 한 줄, 그 아래 입력칸·버튼.
+ * [summary] 가 있고 완료된 단계면 요약 한 줄로 접히고, 머리를 누르면 다시 펼친다.
+ */
+@Composable
+fun StepCard(
+    number: Int,
+    title: String,
+    desc: String,
+    dot: Dot,
+    summary: String? = null,
+    content: @Composable () -> Unit,
+) {
+    val t = LocalTexts.current
+    val collapsible = dot == Dot.DONE && summary != null
+    var expanded by rememberSaveable(collapsible) { mutableStateOf(!collapsible) }
     Card(
         Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "$number  $title",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-                StatusBadge(status)
+        Column(Modifier.padding(Pad), verticalArrangement = Arrangement.spacedBy(Gap)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(if (collapsible) Modifier.clickable(onClickLabel = if (expanded) t.collapse else t.expand) { expanded = !expanded } else Modifier),
+            ) {
+                StepDot(number, dot)
+                Spacer(Modifier.width(Gap))
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (collapsible && !expanded) summary.orEmpty() else desc,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (collapsible) {
+                    Text(
+                        if (expanded) "▴" else "▾",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 8.dp).clearAndSetSemantics { },
+                    )
+                }
             }
-            content()
+            if (expanded) content()
         }
     }
 }
 
 @Composable
-private fun StatusBadge(status: StepStatus) {
-    val (label, color) = when (status) {
-        StepStatus.DONE -> "완료" to Good
-        StepStatus.WORKING -> "진행 중" to MaterialTheme.colorScheme.primary
-        StepStatus.WAITING -> "대기" to MaterialTheme.colorScheme.outline
+private fun StepDot(number: Int, dot: Dot) {
+    val t = LocalTexts.current
+    val colors = MaterialTheme.colorScheme
+    val (bg, fg) = when (dot) {
+        Dot.DONE -> colors.primaryContainer to colors.primary
+        Dot.ACTIVE -> colors.primary to colors.onPrimary
+        Dot.WAITING -> colors.surfaceVariant to colors.onSurfaceVariant
     }
-    Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(50)) {
+    val state = when (dot) {
+        Dot.DONE -> t.stepDone
+        Dot.ACTIVE -> t.stepActive
+        Dot.WAITING -> t.stepWaiting
+    }
+    Box(
+        Modifier
+            .size(28.dp)
+            .background(bg, CircleShape)
+            .clearAndSetSemantics { contentDescription = "$number · $state" },
+        contentAlignment = Alignment.Center,
+    ) {
         Text(
-            label,
-            color = color,
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            if (dot == Dot.DONE) "✓" else number.toString(),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = fg,
         )
     }
 }
 
 @Composable
 private fun Guide(text: String) {
-    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
+/** 진행·안내([good]) 는 강조색, 오류는 빨강. */
 @Composable
-private fun Message(text: String?, good: Boolean = false) {
-    if (text == null) return
+private fun Message(msg: Msg?, good: Boolean = false) {
+    if (msg == null) return
     Text(
-        text,
+        msg(LocalTexts.current),
         style = MaterialTheme.typography.bodyMedium,
-        color = if (good) Good else MaterialTheme.colorScheme.error,
+        color = if (good) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
     )
+}
+
+/** 설치 결과 배너: 제목 + 원인·다음 할 일. */
+@Composable
+fun ResultBanner(success: Boolean, title: String, body: String) {
+    val ok = LocalSuccessColors.current
+    val colors = MaterialTheme.colorScheme
+    val (container, accent, onContainer) =
+        if (success) Triple(ok.container, ok.content, ok.onContainer)
+        else Triple(colors.errorContainer, colors.error, colors.onErrorContainer)
+    Surface(color = container, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(horizontal = Pad, vertical = Gap), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = accent)
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = onContainer)
+        }
+    }
+}
+
+/** 보내는 중: 막대 + 퍼센트. [percent] 가 null 이면 끝을 모르는 막대(워치에서 설치 중). */
+@Composable
+fun InstallProgress(label: String, percent: Int?) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            if (percent != null) {
+                Text("$percent%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        if (percent != null) {
+            LinearProgressIndicator(progress = { percent / 100f }, modifier = Modifier.fillMaxWidth())
+        } else {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+        }
+    }
 }
 
 @Composable
@@ -142,7 +302,6 @@ private fun Field(
     help: String,
     number: Boolean,
     enabled: Boolean,
-    modifier: Modifier = Modifier,
 ) {
     OutlinedTextField(
         value = value,
@@ -151,114 +310,104 @@ private fun Field(
         supportingText = { Text(help) },
         singleLine = true,
         enabled = enabled,
+        shape = RoundedCornerShape(12.dp),
         keyboardOptions = KeyboardOptions(
+            // IP 칸은 "192.168.0.12:37123" 붙여넣기와 점·콜론 입력이 되도록 숫자 전용 키패드를 쓰지 않는다.
             keyboardType = if (number) KeyboardType.Number else KeyboardType.Uri,
             imeAction = ImeAction.Next,
         ),
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
     )
 }
 
 @Composable
-private fun PairStep(vm: InstallerViewModel) {
-    StepCard(1, "페어링 (처음 한 번만)", vm.pairStatus) {
+private fun PairStep(vm: InstallerViewModel, dot: Dot) {
+    val t = LocalTexts.current
+    StepCard(1, t.pairTitle, t.pairDesc, dot, summary = t.pairSummary) {
         if (vm.pairStatus == StepStatus.DONE) {
-            Guide("이 폰과 워치가 이미 짝지어져 있어요. 워치를 초기화했거나 연결이 계속 거부되면 다시 해 주세요.")
+            Guide(t.pairDoneGuide)
             Message(vm.pairMessage, good = true)
-            TextButton(onClick = vm::repair) { Text("페어링 다시 하기") }
+            TextButton(onClick = vm::repair) { Text(t.repair) }
             return@StepCard
         }
         val busy = vm.pairStatus == StepStatus.WORKING
-        Guide("워치에서: 설정 → 개발자 옵션 → 무선 디버깅 → '새 기기 페어링'을 누르세요. 그 화면을 켠 채로 아래를 채우세요.")
-        if (vm.pairAutoFilled) Message("같은 와이파이에서 워치를 찾아 IP·포트를 채웠어요.", good = true)
-        Field(vm.pairIp, vm::onPairIpChange, "IP 주소", "워치 화면의 'IP 주소 및 포트' 에서 콜론(:) 앞부분", number = false, enabled = !busy)
-        Field(vm.pairPort, { vm.pairPort = it.filter(Char::isDigit) }, "포트", "콜론(:) 뒤의 숫자", number = true, enabled = !busy)
-        Field(
-            vm.pairCode,
-            { vm.pairCode = it.filter(Char::isDigit).take(6) },
-            "페어링 코드",
-            "워치 화면에 보이는 6자리 숫자",
-            number = true,
-            enabled = !busy,
-        )
+        Guide(t.pairGuide)
+        if (vm.pairAutoFilled) Message({ it.autoFilled }, good = true)
+        Field(vm.pairIp, vm::onPairIpChange, t.ipLabel, t.pairIpHelp, number = false, enabled = !busy)
+        Field(vm.pairPort, { vm.pairPort = it.filter(Char::isDigit) }, t.portLabel, t.portHelp, number = true, enabled = !busy)
+        Field(vm.pairCode, { vm.pairCode = it.filter(Char::isDigit).take(6) }, t.codeLabel, t.codeHelp, number = true, enabled = !busy)
         Message(vm.pairMessage, good = busy)
-        BusyButton("페어링", busy = busy, onClick = vm::pair)
+        BusyButton(t.pairButton, busy = busy, onClick = vm::pair)
     }
 }
 
 @Composable
-private fun ConnectStep(vm: InstallerViewModel) {
-    StepCard(2, "워치 연결", vm.connectStatus) {
-        val connectedTo = vm.connectedTo
+private fun ConnectStep(vm: InstallerViewModel, dot: Dot) {
+    val t = LocalTexts.current
+    val connectedTo = vm.connectedTo
+    StepCard(2, t.connectTitle, t.connectDesc, dot, summary = connectedTo?.let(t::connectedTo)) {
         if (vm.connectStatus == StepStatus.DONE && connectedTo != null) {
-            Message("워치에 연결됐어요 ($connectedTo)", good = true)
-            TextButton(onClick = vm::disconnect) { Text("연결 끊기") }
+            Message({ it.connectedTo(connectedTo) }, good = true)
+            TextButton(onClick = vm::disconnect) { Text(t.disconnect) }
             return@StepCard
         }
         val busy = vm.connectStatus == StepStatus.WORKING
-        Guide("워치의 무선 디버깅 첫 화면에 보이는 'IP 주소 및 포트'를 넣으세요. 포트는 무선 디버깅을 켤 때마다 바뀌어요.")
-        if (vm.connectAutoFilled) Message("같은 와이파이에서 워치를 찾아 IP·포트를 채웠어요.", good = true)
-        Field(vm.connectIp, vm::onConnectIpChange, "IP 주소", "예: 192.168.0.12", number = false, enabled = !busy)
-        Field(vm.connectPort, { vm.connectPort = it.filter(Char::isDigit) }, "포트", "콜론(:) 뒤의 숫자", number = true, enabled = !busy)
+        Guide(t.connectGuide)
+        if (vm.connectAutoFilled) Message({ it.autoFilled }, good = true)
+        Field(vm.connectIp, vm::onConnectIpChange, t.ipLabel, t.connectIpHelp, number = false, enabled = !busy)
+        Field(vm.connectPort, { vm.connectPort = it.filter(Char::isDigit) }, t.portLabel, t.portHelp, number = true, enabled = !busy)
         Message(vm.connectMessage, good = busy)
-        BusyButton("연결", busy = busy, onClick = vm::connect)
+        BusyButton(t.connectButton, busy = busy, onClick = vm::connect)
     }
 }
 
 @Composable
-private fun FileStep(vm: InstallerViewModel, onPickFile: () -> Unit, onAllowDownloads: () -> Unit) {
+private fun FileStep(vm: InstallerViewModel, dot: Dot, onPickFile: () -> Unit, onAllowDownloads: () -> Unit) {
+    val t = LocalTexts.current
     val apk = vm.apk
-    StepCard(3, "설치할 파일", if (apk != null) StepStatus.DONE else StepStatus.WAITING) {
+    val name = apk?.name?.ifEmpty { t.pickedFileName }
+    StepCard(3, t.fileTitle, t.fileDesc, dot, summary = name) {
         if (apk != null) {
-            Text(apk.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            val modified = apk.modified?.let { " · ${Format.time(it)} 수정" }.orEmpty()
-            Guide("${Format.size(apk.size)}$modified")
-            if (apk.file != null) Guide("다운로드 폴더의 snown-watch.apk 를 자동으로 골랐어요.")
+            Column {
+                Text(name.orEmpty(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                val modified = apk.modified?.let { " · " + t.modifiedAt(Format.time(it, t)) }.orEmpty()
+                Guide("${Format.size(apk.size)}$modified")
+            }
+            if (apk.file != null) Guide(t.autoPicked)
         } else {
-            Guide("다운로드 폴더에 snown-watch.apk 를 받아 두거나, 아래 버튼으로 파일을 고르세요.")
+            Guide(t.noFileGuide)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onPickFile) { Text(if (apk == null) "파일 고르기" else "다른 파일 고르기") }
+        OutlinedButton(onClick = onPickFile, modifier = Modifier.fillMaxWidth()) {
+            Text(if (apk == null) t.pickFile else t.pickOther)
         }
         if (!vm.canReadDownloads) {
-            Guide("'모든 파일 접근'을 허용하면 다음부터 다운로드 폴더의 snown-watch.apk 를 알아서 집어 와요.")
-            TextButton(onClick = onAllowDownloads) { Text("다운로드 폴더 자동 읽기 허용") }
+            Guide(t.allowGuide)
+            TextButton(onClick = onAllowDownloads) { Text(t.allowButton) }
         }
     }
 }
 
 @Composable
-private fun InstallStep(vm: InstallerViewModel) {
+private fun InstallStep(vm: InstallerViewModel, dot: Dot) {
+    val t = LocalTexts.current
     val state = vm.install
-    val status = when (state) {
-        InstallState.Done -> StepStatus.DONE
-        is InstallState.Sending, InstallState.Installing -> StepStatus.WORKING
-        else -> StepStatus.WAITING
-    }
-    StepCard(4, "워치에 설치", status) {
+    StepCard(4, t.installTitle, t.installDesc, dot) {
         when (state) {
             InstallState.Idle -> Guide(
                 when {
-                    vm.connectStatus != StepStatus.DONE -> "2번에서 워치에 먼저 연결하세요."
-                    vm.apk == null -> "3번에서 파일을 먼저 고르세요."
-                    else -> "준비됐어요. 설치를 누르세요. 워치에 있는 스논은 새 파일로 덮어써요."
+                    vm.connectStatus != StepStatus.DONE -> t.needConnect
+                    vm.apk == null -> t.needFile
+                    else -> t.ready
                 },
             )
-            is InstallState.Sending -> {
-                val pct = Format.percent(state.sent, state.total)
-                Text("워치로 보내는 중… $pct%")
-                LinearProgressIndicator(progress = { pct / 100f }, modifier = Modifier.fillMaxWidth())
-            }
-            InstallState.Installing -> {
-                Text("워치에서 설치하는 중… (조금 걸려요)")
-                LinearProgressIndicator(Modifier.fillMaxWidth())
-            }
-            InstallState.Done -> Message("설치 완료! 워치에서 스논을 열어 보세요.", good = true)
-            is InstallState.Failed -> Message(state.message)
+            is InstallState.Sending -> InstallProgress(t.sending, Format.percent(state.sent, state.total))
+            InstallState.Installing -> InstallProgress(t.installing, null)
+            InstallState.Done -> ResultBanner(success = true, title = t.successTitle, body = t.successNext)
+            is InstallState.Failed -> ResultBanner(success = false, title = t.failTitle, body = state.message(t))
         }
-        val busy = status == StepStatus.WORKING
+        val busy = state is InstallState.Sending || state is InstallState.Installing
         BusyButton(
-            if (state is InstallState.Done || state is InstallState.Failed) "다시 설치" else "설치",
+            if (state is InstallState.Done || state is InstallState.Failed) t.reinstallButton else t.installButton,
             busy = busy,
             enabled = vm.canInstall,
             onClick = vm::install,
@@ -268,10 +417,74 @@ private fun InstallStep(vm: InstallerViewModel) {
 
 @Composable
 private fun BusyButton(label: String, busy: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
-    Button(onClick = onClick, enabled = enabled && !busy, modifier = Modifier.fillMaxWidth()) {
+    Button(
+        onClick = onClick,
+        enabled = enabled && !busy,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth().height(48.dp),
+    ) {
         if (busy) {
             CircularProgressIndicator(Modifier.padding(end = 8.dp).size(18.dp), strokeWidth = 2.dp)
         }
         Text(label)
     }
 }
+
+// ---- 미리보기: ViewModel 없이 카드 모양만 확인한다 ----
+
+@Composable
+private fun PreviewScreen(lang: Lang, dark: Boolean) {
+    InstallerTheme(dark = dark) {
+        ScreenFrame(lang, onLang = {}) {
+            val t = LocalTexts.current
+            StepCard(1, t.pairTitle, t.pairDesc, Dot.DONE, summary = t.pairSummary) {}
+            StepCard(2, t.connectTitle, t.connectDesc, Dot.ACTIVE) {
+                Guide(t.connectGuide)
+                Field("192.168.0.12", {}, t.ipLabel, t.connectIpHelp, number = false, enabled = true)
+                Field("", {}, t.portLabel, t.portHelp, number = true, enabled = true)
+                Message({ it.errConnectRefused })
+                BusyButton(t.connectButton, busy = false) {}
+            }
+            StepCard(3, t.fileTitle, t.fileDesc, Dot.DONE, summary = "watch-app.apk") {}
+            StepCard(4, t.installTitle, t.installDesc, Dot.WAITING) {
+                Guide(t.needConnect)
+                BusyButton(t.installButton, busy = false, enabled = false) {}
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreviewInstall(lang: Lang, dark: Boolean) {
+    InstallerTheme(dark = dark) {
+        CompositionLocalProvider(LocalTexts provides lang.texts) {
+            val t = LocalTexts.current
+            Surface(color = MaterialTheme.colorScheme.background) {
+                Column(Modifier.padding(Pad), verticalArrangement = Arrangement.spacedBy(Gap)) {
+                    StepCard(4, t.installTitle, t.installDesc, Dot.ACTIVE) {
+                        InstallProgress(t.sending, 42)
+                        BusyButton(t.installButton, busy = true) {}
+                    }
+                    ResultBanner(success = true, title = t.successTitle, body = t.successNext)
+                    ResultBanner(success = false, title = t.failTitle, body = t.installSignature)
+                }
+            }
+        }
+    }
+}
+
+@Preview(name = "Light · Korean", widthDp = 360, heightDp = 1000)
+@Composable
+private fun PreviewLightKo() = PreviewScreen(Lang.KO, dark = false)
+
+@Preview(name = "Dark · English", widthDp = 360, heightDp = 1000, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PreviewDarkEn() = PreviewScreen(Lang.EN, dark = true)
+
+@Preview(name = "Install · Light · English", widthDp = 360)
+@Composable
+private fun PreviewInstallLightEn() = PreviewInstall(Lang.EN, dark = false)
+
+@Preview(name = "Install · Dark · Korean", widthDp = 360, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PreviewInstallDarkKo() = PreviewInstall(Lang.KO, dark = true)

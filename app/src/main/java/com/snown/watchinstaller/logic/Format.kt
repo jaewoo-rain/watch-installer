@@ -1,5 +1,6 @@
 package com.snown.watchinstaller.logic
 
+import com.snown.watchinstaller.i18n.Texts
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -11,8 +12,8 @@ object Format {
         else -> "$bytes B"
     }
 
-    fun time(millis: Long): String =
-        SimpleDateFormat("M월 d일 a h:mm", Locale.KOREA).format(Date(millis))
+    fun time(millis: Long, t: Texts): String =
+        SimpleDateFormat(t.datePattern, t.locale).format(Date(millis))
 
     /** 0..100 */
     fun percent(sent: Long, total: Long): Int =

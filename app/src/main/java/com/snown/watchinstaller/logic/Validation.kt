@@ -1,30 +1,32 @@
 package com.snown.watchinstaller.logic
 
-/** 입력칸 검증. 문제가 없으면 null, 있으면 화면에 띄울 한국어 안내. */
+import com.snown.watchinstaller.i18n.Msg
+
+/** 입력칸 검증. 문제가 없으면 null, 있으면 화면에 띄울 안내. */
 object Validation {
 
     private val ipv4 = Regex("""^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$""")
 
-    fun ipError(raw: String): String? {
+    fun ipError(raw: String): Msg? {
         val ip = raw.trim()
-        if (ip.isEmpty()) return "IP 주소를 넣어 주세요"
-        val m = ipv4.matchEntire(ip) ?: return "숫자 네 덩어리를 점으로 이어 써 주세요 (예: 192.168.0.12)"
-        if (m.groupValues.drop(1).any { it.toInt() > 255 }) return "각 숫자는 0~255 사이여야 해요"
+        if (ip.isEmpty()) return { it.ipEmpty }
+        val m = ipv4.matchEntire(ip) ?: return { it.ipFormat }
+        if (m.groupValues.drop(1).any { it.toInt() > 255 }) return { it.ipRange }
         return null
     }
 
-    fun portError(raw: String): String? {
+    fun portError(raw: String): Msg? {
         val port = raw.trim()
-        if (port.isEmpty()) return "포트 번호를 넣어 주세요"
-        val n = port.toIntOrNull() ?: return "포트는 숫자만 넣어 주세요"
-        if (n !in 1..65535) return "포트 번호가 너무 커요 (1~65535)"
+        if (port.isEmpty()) return { it.portEmpty }
+        val n = port.toIntOrNull() ?: return { it.portDigits }
+        if (n !in 1..65535) return { it.portRange }
         return null
     }
 
-    fun codeError(raw: String): String? {
+    fun codeError(raw: String): Msg? {
         val code = raw.trim()
-        if (code.isEmpty()) return "워치 화면의 6자리 숫자를 넣어 주세요"
-        if (!code.all { it.isDigit() } || code.length != 6) return "숫자 6자리여야 해요"
+        if (code.isEmpty()) return { it.codeEmpty }
+        if (!code.all { it.isDigit() } || code.length != 6) return { it.codeFormat }
         return null
     }
 

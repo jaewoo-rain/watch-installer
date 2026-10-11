@@ -44,7 +44,7 @@ object ApkInstaller {
                 if (partial.contains("Failure")) return Result.Failure(partial)
                 throw e
             }
-            if (sent != size) throw IOException("파일 크기가 바뀌었어요 ($sent / $size)")
+            if (sent != size) throw IOException("File size changed while sending ($sent / $size)")
             // 워치가 설치를 끝내면 결과를 한 줄 쓰고 스트림을 닫는다.
             val output = input.readBytes().decodeToString().trim()
             return if (output.contains("Success")) Result.Success else Result.Failure(output)
