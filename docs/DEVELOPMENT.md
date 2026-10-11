@@ -26,13 +26,14 @@
 - 설치 중에는 `LinearProgressIndicator` + 퍼센트, 끝나면 성공(초록)/실패(빨강) 배너.
 - 색은 `ui/Theme.kt` 의 고정 팔레트(파랑 강조색 하나 + 회색, 라이트/다크). dynamic color 는 쓰지 않는다.
 - 여백은 16dp(바깥·카드 안) / 12dp(요소 사이), 글자는 titleLarge(앱 제목)·titleMedium(카드 제목)·bodyMedium(본문) 세 단계.
+- 런처 아이콘은 적응형(`res/mipmap-anydpi-v26/ic_launcher.xml`, round 도 같은 내용)이고 PNG 대체본은 없다(minSdk 30). 전경 `drawable/ic_launcher_foreground.xml` 은 둥근 워치 실루엣 안에 아래 화살표(흰색, 안전 영역 66dp 원 안), 배경 `drawable/ic_launcher_background.xml` 은 강조색 파랑 그라데이션. monochrome(테마 아이콘)은 전경을 그대로 쓴다. README 의 `docs/images/icon.png` 는 같은 좌표를 Java2D 로 원형 마스크·512px 에 그린 미리보기라, 벡터를 고치면 다시 그린다.
 
 ## 한글 / English
 
 - 언어 전환은 **Compose 안 언어 객체 + CompositionLocal** 로 했다(`i18n/Texts.kt`, `Ko.kt`, `En.kt`, `ui/InstallerScreen.kt` 의 `LocalTexts`) — 실패·검증 메시지를 Robolectric 없이 JVM 단위 테스트로 두 언어 다 확인할 수 있고, Activity 재시작 없이 즉시 바뀌기 때문.
 - 고른 언어는 SharedPreferences(`installer` / `lang`)에 저장한다. 처음 실행은 기기 언어가 한국어면 한글, 아니면 English.
 - ViewModel 은 완성된 문자열 대신 `Msg = (Texts) -> String` 을 들고 있어서, 언어를 바꾸면 이미 떠 있는 안내·오류도 바로 바뀐다.
-- 런처의 앱 이름만 Android 리소스다(`values/strings.xml` = Watch Installer, `values-ko` = 워치 설치 도우미). 런처는 앱 안 선택이 아니라 기기 언어를 따른다.
+- 런처의 앱 이름만 Android 리소스다(`values/strings.xml` = Wear Installer, `values-ko` = 웨어 인스톨러). 런처는 앱 안 선택이 아니라 기기 언어를 따른다.
 - 새 문구를 넣을 때: `Texts` 에 항목을 추가하면 `Ko`·`En` 둘 다 채우기 전엔 컴파일이 안 된다. `TextsTest` 가 영어 문구에 한글이 섞였는지 확인한다.
 
 ## 라이브러리 선택: libadb-android

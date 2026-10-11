@@ -8,7 +8,7 @@ object En : Texts {
     override val locale: Locale = Locale.US
     override val datePattern = "MMM d, h:mm a"
 
-    override val appName = "Watch Installer"
+    override val appName = "Wear Installer"
     override val intro = "Follow the steps from top to bottom to install a watch APK from this phone onto your watch."
     override val sameWifi = "Connect the phone and the watch to the same Wi-Fi (or the phone's hotspot)."
     override val tipTurnOff = "When you're done, turn off Wireless debugging on the watch (saves battery)."

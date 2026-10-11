@@ -34,7 +34,7 @@ class AdbManager private constructor(
 
     override fun getPrivateKey(): PrivateKey = privateKey
     override fun getCertificate(): Certificate = certificate
-    override fun getDeviceName(): String = "Watch Installer"
+    override fun getDeviceName(): String = "Wear Installer"
 
     companion object {
         @Volatile private var instance: AdbManager? = null

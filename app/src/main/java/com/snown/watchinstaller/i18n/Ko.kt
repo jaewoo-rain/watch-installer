@@ -8,7 +8,7 @@ object Ko : Texts {
     override val locale: Locale = Locale.KOREA
     override val datePattern = "M월 d일 a h:mm"
 
-    override val appName = "워치 설치 도우미"
+    override val appName = "웨어 인스톨러"
     override val intro = "위에서부터 순서대로 하면 폰에 있는 워치용 APK 를 워치에 깔 수 있어요."
     override val sameWifi = "폰과 워치를 같은 Wi-Fi(또는 폰 핫스팟)에 연결해 주세요."
     override val tipTurnOff = "설치가 끝나면 워치의 무선 디버깅을 꺼 두세요(배터리)."

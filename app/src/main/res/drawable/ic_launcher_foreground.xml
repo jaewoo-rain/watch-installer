@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  런처 아이콘 전경: 둥근 스마트워치(케이스 링 + 위아래 밴드) 안에 아래로 내려오는 화살표.
+  '폰에서 워치로 설치'. 핵심 형태는 안전 영역(가운데 지름 66dp 원) 안에 둔다.
+  흰색 하나만 써서 monochrome(테마 아이콘)으로도 그대로 쓴다.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 케이스 링: 중심 (54,54) 반지름 21, 선 굵기 6 -->
+    <path
+        android:pathData="M54,33 A21,21 0 1 1 54,75 A21,21 0 1 1 54,33 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6" />
+
+    <!-- 밴드(위) -->
+    <path
+        android:pathData="M49,22 H59 Q62,22 62,25 V33 H46 V25 Q46,22 49,22 Z"
+        android:fillColor="#FFFFFF" />
+
+    <!-- 밴드(아래) -->
+    <path
+        android:pathData="M46,75 H62 V83 Q62,86 59,86 H49 Q46,86 46,83 Z"
+        android:fillColor="#FFFFFF" />
+
+    <!-- 화살표 몸통 -->
+    <path
+        android:pathData="M54,42 V63"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round" />
+
+    <!-- 화살표 머리 -->
+    <path
+        android:pathData="M45,55 L54,64 L63,55"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

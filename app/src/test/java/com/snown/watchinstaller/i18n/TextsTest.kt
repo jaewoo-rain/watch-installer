@@ -30,8 +30,8 @@ class TextsTest {
     }
 
     @Test fun app_names() {
-        assertEquals("워치 설치 도우미", Ko.appName)
-        assertEquals("Watch Installer", En.appName)
+        assertEquals("웨어 인스톨러", Ko.appName)
+        assertEquals("Wear Installer", En.appName)
     }
 
     /** 영어 문구에 한글이 섞여 있지 않은지 — 옮기다 빠뜨린 곳 찾기. */

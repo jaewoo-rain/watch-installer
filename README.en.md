@@ -1,6 +1,6 @@
 [한국어](README.md) | **English**
 
-# Watch Installer
+# <img src="docs/images/icon.png" width="40" align="top"> Wear Installer
 
 An Android app that **installs APKs on a Wear OS watch from your phone**.
 No PC needed: the phone connects to the watch over Wireless debugging and installs a watch APK that's on the phone.
@@ -19,7 +19,7 @@ First, enable USB debugging on the **phone**: Settings → About phone → Softw
 3. Wait until the **Gradle Sync** progress at the bottom of the window finishes (the first time takes a few minutes). If it asks you to install an SDK, go ahead and install it.
 4. Connect the phone to the PC with a USB cable. When the phone asks "Allow USB debugging?", tap **Allow**.
 5. In the toolbar at the top, make sure the run configuration is **app**, and pick **your phone** in the device list next to it.
-6. Click the green **▶ (Run 'app')**. When the build finishes, "Watch Installer" is installed on the phone and opens.
+6. Click the green **▶ (Run 'app')**. When the build finishes, "Wear Installer" is installed on the phone and opens.
 
 ### Method 2. Build and install from a terminal
 

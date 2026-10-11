@@ -1,4 +1,4 @@
-// 워치 설치 도우미 — 단독 Gradle 프로젝트.
+// 웨어 인스톨러 — 단독 Gradle 프로젝트.
 pluginManagement {
     repositories {
         google()
